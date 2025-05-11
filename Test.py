@@ -107,8 +107,7 @@ def plot_data(before, after, attrs_to_plot=(0, 1)):
 folder_to_check = 'male'
 base_dir = f'dane/{folder_to_check}'
 
-# Połączymy dane z różnych plików
-for subfolder in os.listdir(base_dir)[:1]:
+for subfolder in os.listdir(base_dir):
     full_subfolder_path = os.path.join(base_dir, subfolder)
 
     if not os.path.isdir(full_subfolder_path):
@@ -122,7 +121,7 @@ for subfolder in os.listdir(base_dir)[:1]:
     data_list = list()
 
     print(f"\n📁 Folder: {subfolder}")
-    for i in range(5):  # male-0 do male-9
+    for i in range(10):  # male-0 do male-9
         prefix = f'{folder_to_check}-{i}'
         attr_path = os.path.join(full_subfolder_path, f'{prefix}.attr')
         data_path = os.path.join(full_subfolder_path, f'{prefix}.data')
@@ -143,22 +142,22 @@ for subfolder in os.listdir(base_dir)[:1]:
         # Łączymy dane z różnych zbiorów
         full_data_list.extend(data_list)
 
-if all_attrs and full_data_list:
+    if all_attrs and full_data_list:
 
-    print(f"📦 Połączony zbiór danych zawiera {len(full_data_list)} rekordów i {len(all_attrs)} atrybutów")
+        print(f"📦 Połączony zbiór danych zawiera {len(full_data_list)} rekordów i {len(all_attrs)} atrybutów")
 
-    # Przed uzupełnianiem
-    print("Przed uzupełnieniem:")
-    for row in full_data_list[:10]:  # pokaż pierwsze 10 rekordów
-        print('   ', row)
+        # Przed uzupełnianiem
+        print("Przed uzupełnieniem:")
+        for row in full_data_list[:10]:  # pokaż pierwsze 10 rekordów
+            print('   ', row)
 
-    # Uzupełnianie brakujących danych
-    filled_dataset = fill_missing_values(copy.deepcopy(full_data_list), all_attrs, k=3)
+        # Uzupełnianie brakujących danych
+        filled_dataset = fill_missing_values(copy.deepcopy(full_data_list), all_attrs, k=5)
 
-    # Po uzupełnianiu
-    print("\nPo uzupełnieniu:")
-    for row in filled_dataset[:10]:  # pokaż pierwsze 10 rekordów po uzupełnieniu
-        print('   ', row)
+        # Po uzupełnianiu
+        print("\nPo uzupełnieniu:")
+        for row in filled_dataset[:10]:  # pokaż pierwsze 10 rekordów po uzupełnieniu
+            print('   ', row)
 
-    # Let's visualize the data (selecting the first two attributes for plotting)
-    plot_data(full_data_list, filled_dataset, attrs_to_plot=('0', '2'))
+        # Let's visualize the data (selecting the first two attributes for plotting)
+        plot_data(full_data_list, filled_dataset, attrs_to_plot=('0', '2'))
