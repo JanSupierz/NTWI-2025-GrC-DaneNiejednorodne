@@ -5,9 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2956c6d8-bcae-43b8-9df1-0aed638001ed" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Rename.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Test.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Test.py" beforeDir="false" afterPath="$PROJECT_DIR$/Test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -76,7 +75,15 @@
       <option name="project" value="LOCAL" />
       <updated>1746958823351</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Unified file names: &#10;male0.attr -&gt; male-0.attr&#10;Test data loading">
+      <option name="closed" value="true" />
+      <created>1746963562993</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1746963562993</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -95,6 +102,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="start" />
-    <option name="LAST_COMMIT_MESSAGE" value="start" />
+    <MESSAGE value="Unified file names: &#10;male0.attr -&gt; male-0.attr&#10;Test data loading" />
+    <option name="LAST_COMMIT_MESSAGE" value="Unified file names: &#10;male0.attr -&gt; male-0.attr&#10;Test data loading" />
   </component>
 </project>
