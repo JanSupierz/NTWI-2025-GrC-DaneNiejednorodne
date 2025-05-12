@@ -20,6 +20,7 @@ def fill_missing_with_fcm(data_mat, k=5, g=10, fuzziness=2.0, max_iter=1000, err
         seed=0
     )
 
+
     # 3) Hard cluster assignments
     hard_labels = np.argmax(u, axis=0)
     n = data_mat.shape[0]
