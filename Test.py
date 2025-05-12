@@ -1,32 +1,22 @@
 import os
 import math
-import copy
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import tqdm
-
+from sklearn.impute import KNNImputer
 
 def read_attr_file(attr_path):
     with open(attr_path, 'r') as f:
         return [line.strip() for line in f]
 
-
 def read_data_file(data_path):
     with open(data_path, 'r') as f:
         return [list(map(float, line.strip().split())) for line in f]
 
-
 def build_dataset_matrix(all_attrs, full_data_list):
-    """
-    Build a numpy matrix of shape (n_records, n_attrs) with np.nan for missing.
-    Returns:
-      - data_mat: np.ndarray
-      - attr_idx: dict mapping attr name to column index
-    """
-    attrs = sorted(all_attrs)
+    attrs = sorted(all_attrs, key=int)
     idx = {a: i for i, a in enumerate(attrs)}
     n, m = len(full_data_list), len(attrs)
-    data_mat = np.full((n, m), np.nan, dtype=float)
+    data_mat = np.full((n, m), np.nan, dtype=np.float64)
     for i, row in enumerate(full_data_list):
         for a, v in row.items():
             if a in idx:
@@ -36,78 +26,36 @@ def build_dataset_matrix(all_attrs, full_data_list):
                     pass
     return data_mat, idx
 
-
-def fill_missing_numpy(data_mat, k):
+def fill_missing_knn_with_progress(data_mat, k=5, chunk_size=600):
     """
-    Fill missing values (np.nan) by k-NN averaging over available dims.
+    Fill missing values via k-NN averaging over available dims,
+    using scikit-learn’s KNNImputer—but transforming in chunks
+    so we can show progress.
     """
-    n, m = data_mat.shape
-    filled = data_mat.copy()
+    n = data_mat.shape[0]
+    imputer = KNNImputer(
+        n_neighbors=k,
+        weights="uniform",
+        metric="nan_euclidean"
+    )
+    # Fit on the entire dataset (stores training data internally)
+    imputer.fit(data_mat)
 
-    for i in tqdm(range(n), total=n):
-        row = filled[i]
-        missing_cols = np.where(np.isnan(row))[0]
-        if missing_cols.size == 0:
-            continue
+    # Prepare output array
+    filled = np.empty_like(data_mat)
 
-        for j in missing_cols:
-            # select dims except the target j
-            dims = [d for d in range(m) if d != j]
-            # mask of valid dims in row
-            valid_row = ~np.isnan(row[dims])
-            if not valid_row.any():
-                continue
-
-            # mask valid rows: must have no nan in those dims
-            other = np.isnan(filled[:, dims])
-            valid_rows = ~other.any(axis=1)
-            valid_rows[i] = False
-
-            if not valid_rows.any():
-                continue
-
-            # compute squared distances on dims
-            diffs = filled[valid_rows][:, dims] - row[dims]
-            sq_dist = np.nansum(diffs**2, axis=1)
-
-            # pick k smallest
-            k_eff = min(k, sq_dist.size)
-            idx_k = np.argpartition(sq_dist, k_eff - 1)[:k_eff]
-            # map back to original row indices
-            neighbors = np.where(valid_rows)[0][idx_k]
-
-            # average their j-th values if not nan
-            vals = filled[neighbors, j]
-            vals = vals[~np.isnan(vals)]
-            if vals.size > 0:
-                filled[i, j] = vals.mean()
+    # Process in chunks so we can tqdm the transform step
+    num_chunks = math.ceil(n / chunk_size)
+    for chunk_idx in tqdm(
+        range(num_chunks),
+        desc="KNN Imputing",
+        unit="chunk",
+    ):
+        start = chunk_idx * chunk_size
+        end   = min(start + chunk_size, n)
+        filled[start:end] = imputer.transform(data_mat[start:end])
 
     return filled
-
-
-def plot_data(before_mat, after_mat, idx, attrs_to_plot):
-    """
-    Scatter before and after for two given attribute names.
-    """
-    ax = plt.figure(figsize=(12, 6))
-
-    for pos, (mat, label, color) in enumerate(
-        [(before_mat, 'Before Filling', 'red'),
-         (after_mat, 'After Filling', 'green')]):
-        plt.subplot(1, 2, pos + 1)
-        xi, yi = idx[attrs_to_plot[0]], idx[attrs_to_plot[1]]
-        x = mat[:, xi]
-        y = mat[:, yi]
-        mask = ~np.isnan(x) & ~np.isnan(y)
-        plt.scatter(x[mask], y[mask], label=label, alpha=0.3)
-        plt.title(label)
-        plt.xlabel(attrs_to_plot[0])
-        plt.ylabel(attrs_to_plot[1])
-        plt.legend()
-
-    plt.tight_layout()
-    plt.show()
-
 
 if __name__ == '__main__':
     folder_to_check = 'duze'
@@ -120,38 +68,39 @@ if __name__ == '__main__':
 
         full_data_list = []
         all_attrs = set()
-
         print(f"\n📁 Folder: {subfolder}")
+
         for i in range(10):
-            prefix = f'{folder_to_check}-{i}'
+            prefix    = f'{folder_to_check}-{i}'
             attr_path = os.path.join(full_subfolder_path, f'{prefix}.attr')
             data_path = os.path.join(full_subfolder_path, f'{prefix}.data')
-
             if not os.path.exists(attr_path) or not os.path.exists(data_path):
                 continue
 
             attr_names = read_attr_file(attr_path)
-            data_rows = read_data_file(data_path)
-
+            data_rows  = read_data_file(data_path)
             all_attrs.update(attr_names)
-            full_data_list.extend(dict(zip(attr_names, row)) for row in data_rows)
+            full_data_list.extend(
+                dict(zip(attr_names, row))
+                for row in data_rows
+            )
 
         if not all_attrs or not full_data_list:
             continue
 
-        print(f"📦 Combined dataset: {len(full_data_list)} records, {len(all_attrs)} attrs")
-
-        # Build numpy matrix
+        print(f"📦 Combined dataset: "
+              f"{len(full_data_list)} records, {len(all_attrs)} attrs")
         data_mat, attr_idx = build_dataset_matrix(all_attrs, full_data_list)
 
-        # Fill missing
-        filled_mat = fill_missing_numpy(data_mat, k=5)
+        # This will now print a chunked progress bar to the console:
+        filled_mat = fill_missing_knn_with_progress(data_mat, k=5)
 
-        # Show before/after on first two attrs
-        sample_attrs = list(sorted(all_attrs))[:2]
-        plot_data(data_mat, filled_mat, attr_idx, sample_attrs)
-
-        # Optionally, convert back to dicts:
-        # filled_list = []
-        # for i, row in enumerate(filled_mat):
-        #     filled_list.append({a: row[attr_idx[a]] for a in all_attrs if not np.isnan(row[attr_idx[a]])})
+        print("\nFirst 20 filled entries:")
+        sorted_attrs = sorted(all_attrs, key=int)
+        n_print = min(10, filled_mat.shape[0])
+        for idx_row in range(n_print):
+            entries = [
+                f"'{a}': {filled_mat[idx_row, attr_idx[a]]:.6f}"
+                for a in sorted_attrs
+            ]
+            print(f"Row {idx_row}: " + "{" + ", ".join(entries) + "}")
