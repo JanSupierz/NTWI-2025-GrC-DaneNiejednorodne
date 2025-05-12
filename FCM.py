@@ -9,42 +9,31 @@ from Loading import (
 )
 
 def fill_missing_with_fcm(data_mat, k=5, g=10, fuzziness=2.0, max_iter=1000, error=1e-5):
-    """
-    1. Temporarily replace NaNs with column means for clustering.
-    2. Run Fuzzy C-Means to get a membership matrix (u).
-    3. For each sample, find its *highest-membership* cluster.
-    4. One-hot encode those hard assignments (or weight by membership if you like).
-    5. Augment the data with that cluster info and run KNNImputer.
-    """
     # 1) fill NaNs by col means for clustering
     col_means = np.nanmean(data_mat, axis=0)
-    temp = np.where(np.isnan(data_mat), col_means, data_mat).T  # skfuzzy expects shape (features, samples)
+    temp = np.where(np.isnan(data_mat), col_means, data_mat).T
 
-    # 2) Fuzzy C-Means: returns cluster centers + membership matrix u (shape (g, n_samples))
-    cntr, u, u0, d, jm, p, fpc = fuzz.cluster.cmeans(
-        temp,                  # input data
-        c=g,                   # number of clusters
-        m=fuzziness,           # fuzziness exponent
-        error=error,           # stopping criterion
-        maxiter=max_iter,
-        init=None,
+    # 2) Fuzzy C-Means
+    cntr, u, *_ = fuzz.cluster.cmeans(
+        temp, c=g, m=fuzziness,
+        error=error, maxiter=max_iter,
         seed=0
     )
-    # 3) Hard assign each sample to the cluster with highest membership
+
+    # 3) Hard cluster assignments
     hard_labels = np.argmax(u, axis=0)
-
-    # 4) One-hot encode hard labels and weight heavily
     n = data_mat.shape[0]
-    clusters_ohe = np.zeros((n, g), dtype=float)
-    clusters_ohe[np.arange(n), hard_labels] = 1.0e6  # large weight to keep neighbors within same cluster
+    clusters_ohe = np.zeros((n, g))
+    clusters_ohe[np.arange(n), hard_labels] = 1e6
 
-    # 5) Augment and impute
-    augmented = np.hstack([temp.T, clusters_ohe])  # back to shape (n, m+g)
+    # 4) Augment the **original** data (with NaNs!) and impute
+    augmented = np.hstack([data_mat, clusters_ohe])
     imputer = KNNImputer(n_neighbors=k, metric="nan_euclidean", weights="uniform")
     filled_aug = imputer.fit_transform(augmented)
 
-    # return only the original m columns
+    # 5) Extract and return only the original feature columns
     return filled_aug[:, :data_mat.shape[1]]
+
 
 if __name__ == "__main__":
     folder_to_check = 'male'
