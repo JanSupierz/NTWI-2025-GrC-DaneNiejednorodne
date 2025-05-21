@@ -1,54 +1,117 @@
+import time
 import numpy as np
-import skfuzzy as fuzz
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from sklearn.impute import KNNImputer
+import skfuzzy as fuzz
 
 from Loading import (
     load_folder_data,
     build_dataset_matrix,
 )
 
-def fill_missing_with_fcm(data_mat, k=5, g=10, fuzziness=2.0, max_iter=1000, error=1e-5):
-    # 1) fill NaNs by col means for clustering
-    col_means = np.nanmean(data_mat, axis=0)
-    temp = np.where(np.isnan(data_mat), col_means, data_mat).T
+def mask_random_values(data, mask_ratio=0.2, seed=42):
+    rng = np.random.default_rng(seed)
+    data_copy = data.copy()
+    mask = ~np.isnan(data_copy)
+    indices = np.argwhere(mask)
+    rng.shuffle(indices)
+    n_mask = int(mask_ratio * indices.shape[0])
 
-    # 2) Fuzzy C-Means
-    cntr, u, *_ = fuzz.cluster.cmeans(
-        temp, c=g, m=fuzziness,
-        error=error, maxiter=max_iter,
-        seed=0
+    selected = indices[:n_mask]
+    for i, j in selected:
+        data_copy[i, j] = np.nan
+
+    return data_copy
+
+def plot_imputation_comparison(original, filled, max_rows=20):
+    original = original[:max_rows, :]
+    filled = filled[:max_rows, :]
+
+    fig, axes = plt.subplots(1, 2, figsize=(18, 8))
+
+    for ax, matrix, title in zip(axes, [original, filled], ["Before Imputation", "After Imputation"]):
+        sns.heatmap(
+            matrix,
+            ax=ax,
+            annot=True,
+            fmt=".1f",
+            cmap="viridis",
+            cbar=False,
+            mask=np.isnan(matrix) if title == "Before Imputation" else None
+        )
+        ax.set_title(title)
+        ax.set_xlabel("Features")
+        ax.set_ylabel("Samples")
+
+    plt.tight_layout()
+    plt.show()
+
+def fill_missing_fcm_knn(data, k=5, n_clusters=3):
+    print("Clustering with Fuzzy C-Means...")
+
+    # Use only complete rows for fitting
+    valid_mask = ~np.isnan(data).any(axis=1)
+    valid_data = data[valid_mask].T
+
+    # Fit FCM
+    cntr, u, _, _, _, _, _ = fuzz.cluster.cmeans(
+        valid_data, c=n_clusters, m=2, error=0.005, maxiter=1000
     )
 
+    # Predict fuzzy memberships for all rows (excluding rows with all NaNs)
+    incomplete_mask = np.isnan(data).all(axis=1)
+    to_predict = data[~incomplete_mask].T
 
-    # 3) Hard cluster assignments
-    hard_labels = np.argmax(u, axis=0)
-    n = data_mat.shape[0]
-    clusters_ohe = np.zeros((n, g))
-    clusters_ohe[np.arange(n), hard_labels] = 1e6
+    u_all, _, _, _, _, _ = fuzz.cluster.cmeans_predict(
+        to_predict, cntr, m=2, error=0.005, maxiter=1000
+    )
+    hard_clusters_partial = np.argmax(u_all, axis=0)
 
-    # 4) Augment the **original** data (with NaNs!) and impute
-    augmented = np.hstack([data_mat, clusters_ohe])
-    imputer = KNNImputer(n_neighbors=k, metric="nan_euclidean", weights="uniform")
-    filled_aug = imputer.fit_transform(augmented)
+    # Build full hard cluster assignment (skip rows with all NaNs)
+    hard_clusters = np.full(data.shape[0], -1)
+    hard_clusters[~incomplete_mask] = hard_clusters_partial
 
-    # 5) Extract and return only the original feature columns
-    return filled_aug[:, :data_mat.shape[1]]
+    # Cluster-wise imputation
+    filled = np.empty_like(data)
+    for cluster_id in range(n_clusters):
+        cluster_mask = hard_clusters == cluster_id
+        cluster_data = data[cluster_mask]
 
+        if cluster_data.shape[0] == 0:
+            continue
 
-if __name__ == "__main__":
+        print(f"Imputing cluster {cluster_id} with {cluster_data.shape[0]} rows...")
+        imputer = KNNImputer(n_neighbors=k, weights="uniform", metric="nan_euclidean")
+        filled_cluster = imputer.fit_transform(cluster_data)
+        filled[cluster_mask] = filled_cluster
+
+    return filled
+
+if __name__ == '__main__':
     folder_to_check = 'male'
     base_dir = 'dane'
+    nr_rows_to_show = 10
 
     for subfolder, full_data_list, all_attrs in load_folder_data(base_dir, folder_to_check):
-        print(f"\n📁 Folder: {subfolder}")
-        print(f"📦 Combined dataset: {len(full_data_list)} records, {len(all_attrs)} attrs")
+        print(f"Folder: {subfolder}")
+        print(f"Combined dataset: {len(full_data_list)} records, {len(all_attrs)} attrs")
 
-        data_mat, attr_idx = build_dataset_matrix(all_attrs, full_data_list)
-        filled_mat = fill_missing_with_fcm(data_mat, k=5, g=10)
+        data_mat, attr_idx = build_dataset_matrix(all_attrs, full_data_list, nr_rows_to_show)
 
-        print("\nFirst 10 filled entries:")
+        filled_mat = fill_missing_fcm_knn(data_mat, k=5, n_clusters=3)
+
+        plot_imputation_comparison(data_mat, filled_mat, nr_rows_to_show)
+
+        time.sleep(1)
+
+        print("First 10 filled entries:")
         sorted_attrs = sorted(all_attrs, key=int)
-        for row_i in range(min(10, filled_mat.shape[0])):
-            entries = [f"'{a}': {filled_mat[row_i, attr_idx[a]]:.6f}" for a in sorted_attrs]
-            print(f"Row {row_i}: " + "{" + ", ".join(entries) + "}")
+        n_print = min(10, filled_mat.shape[0])
+
+        for idx_row in range(n_print):
+            entries = [f"'{a}': {filled_mat[idx_row, attr_idx[a]]:.6f}" for a in sorted_attrs]
+            print(f"Row {idx_row}: " + "{" + ", ".join(entries) + "}")
+
+        print('\n')
