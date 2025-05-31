@@ -87,3 +87,25 @@ def load_folder_data(base_dir, folder_to_check, max_parts=10):
 
         if all_attrs and full_data_list:
             yield subfolder, full_data_list, all_attrs
+
+def get_path(base_dir, folder_to_check, subfolder_to_check):
+    return os.path.join(base_dir, folder_to_check, subfolder_to_check)
+
+def load_files(path, folder_to_check):
+    all_lists = []  # List to hold all the individual file data lists
+    all_attrs = set()
+
+    for i in range(10):
+        prefix = f"{folder_to_check}-{i}"
+        attr_path = os.path.join(path, f'{prefix}.attr')
+        data_path = os.path.join(path, f'{prefix}.data')
+
+        names = read_attr_file(attr_path)
+        rows = read_data_file(data_path)
+
+        # Create a list of dictionaries for the current file
+        file_data = [dict(zip(names, row)) for row in rows]
+        all_lists.append(file_data)  # Add this list to the main list
+        all_attrs.update(names)
+
+    return all_lists, all_attrs
