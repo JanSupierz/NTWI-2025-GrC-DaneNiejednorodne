@@ -1,0 +1,9 @@
+pandas
+plotly
+numpy
+numba
+nbformat
+scipy
+scikit-fuzzy
+matplotlib
+ipykernel

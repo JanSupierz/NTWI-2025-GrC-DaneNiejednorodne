@@ -1,0 +1,5 @@
+python3 -m venv .venv
+source .venv/bin/activate
+//Inside venv [after activation]
+pip install --upgrade pip
+pip install -r requirements.txt

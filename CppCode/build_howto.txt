@@ -1,0 +1,4 @@
+mkdir .build
+cd .build
+cmake .. -DPython3_EXECUTABLE=$(which python3.10)
+cmake --build .

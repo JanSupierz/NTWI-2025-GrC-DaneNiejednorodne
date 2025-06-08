@@ -46,7 +46,7 @@ def build_dataset_matrix(all_attrs, full_data_list, nr_values_to_visualize = 10)
                 except ValueError:
                     pass  # skip non-numeric entries
 
-    # Swap the first rows with randomly selected other rows to enhance visualization diversity
+    # Swap the first rows with randomly selected other rows to enhance *visualization* diversity
     if nr_values_to_visualize > 0 and n > nr_values_to_visualize:
         rng = np.random.default_rng(42)
         swap_indices = rng.choice(np.arange(nr_values_to_visualize, n), size=nr_values_to_visualize, replace=False)
@@ -91,14 +91,14 @@ def load_folder_data(base_dir, folder_to_check, max_parts=10):
 def get_path(base_dir, folder_to_check, subfolder_to_check):
     return os.path.join(base_dir, folder_to_check, subfolder_to_check)
 
-def load_files(path, folder_to_check):
+def load_files(full_path, folder_type):
     all_lists = []  # List to hold all the individual file data lists
     all_attrs = set()
 
     for i in range(10):
-        prefix = f"{folder_to_check}-{i}"
-        attr_path = os.path.join(path, f'{prefix}.attr')
-        data_path = os.path.join(path, f'{prefix}.data')
+        prefix = f"{folder_type}-{i}"
+        attr_path = os.path.join(full_path, f'{prefix}.attr')
+        data_path = os.path.join(full_path, f'{prefix}.data')
 
         names = read_attr_file(attr_path)
         rows = read_data_file(data_path)
