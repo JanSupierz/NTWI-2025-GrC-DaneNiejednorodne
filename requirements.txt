@@ -7,3 +7,5 @@ scipy
 scikit-fuzzy
 matplotlib
 ipykernel
+IPython
+seaborn
